@@ -80,8 +80,8 @@ filtro_uasg = st.sidebar.text_input(
 )
 
 filtro_geral = st.sidebar.text_input(
-    "Filtro Geral (qualquer coluna)",
-    help="Este filtro busca em todas as colunas visíveis, após o filtro de UASG."
+    "Filtro por DFD ou Valor Estimado",
+    help="Este filtro busca especificamente no 'Número do DFD' ou no 'Valor Total Estimado'."
 )
 
 st.sidebar.divider()
@@ -154,10 +154,19 @@ for i, ano in enumerate(anos):
 
         # 2. Aplicar filtro geral sobre os dados já filtrados pela UASG
         if filtro_geral:
-            mask = df_filtrado.apply(
-                lambda col: col.astype(str).str.contains(filtro_geral, case=False, na=False)
-            ).any(axis=1)
-            df_filtrado = df_filtrado[mask]
+            # Definimos explicitamente as colunas alvo da nossa busca.
+            colunas_alvo = ['DFD', 'Valor Total Estimado (R$)']
+
+            # Verificamos quais das nossas colunas alvo realmente existem no DataFrame.
+            # Isso evita erros caso o usuário tenha ocultado uma dessas colunas.
+            colunas_para_busca = [col for col in colunas_alvo if col in df_filtrado.columns]
+
+            if colunas_para_busca:
+                # Aplicamos a máscara de busca *apenas* no subconjunto de colunas.
+                mask = df_filtrado[colunas_para_busca].apply(
+                    lambda col: col.astype(str).str.contains(filtro_geral, case=False, na=False)
+                ).any(axis=1)
+                df_filtrado = df_filtrado[mask]
 
         # --- Exibição dos Dados ---
         st.dataframe(df_filtrado, use_container_width=True)
@@ -166,10 +175,15 @@ for i, ano in enumerate(anos):
         total_registros = len(df_filtrado)
         valor_total_estimado = 0
         if 'Valor Total Estimado (R$)' in df_filtrado.columns:
+            # Limpeza do valor antes da conversão para numérico
+            df_filtrado_copy = df_filtrado.copy()
+            df_filtrado_copy['Valor Total Estimado (R$)'] = df_filtrado_copy['Valor Total Estimado (R$)'].str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
+            
             valor_total_estimado = pd.to_numeric(
-                df_filtrado['Valor Total Estimado (R$)'].str.replace(',', '.', regex=False), 
+                df_filtrado_copy['Valor Total Estimado (R$)'], 
                 errors='coerce'
             ).sum()
+
 
         col1, col2 = st.columns(2)
         col1.metric("Registros Exibidos", total_registros)
