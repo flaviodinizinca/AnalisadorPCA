@@ -34,7 +34,13 @@ def load_all_years() -> dict[str, pd.DataFrame]:
             df.loc[~com_prefixo, 'chave_contratacao'] = df.loc[~com_prefixo, 'Identificador da Futura Contratação'].str.strip()
 
             df = pd.merge(df, df_dfd, on='chave_contratacao', how='left')
-            df['DFD'] = df['DFD'].fillna('Não encontrado')
+            
+            # --- AQUI RESIDE A MUDANÇA ---
+            # O método .fillna() agora atribui 'Aguardando Análise' a todas as linhas
+            # que não encontraram uma correspondência na planilha do Google Sheets.
+            # A linguagem do sistema agora reflete o fluxo de trabalho.
+            df['DFD'] = df['DFD'].fillna('Aguardando Análise')
+            
             df.drop(columns=['chave_contratacao'], inplace=True)
         else:
             df['DFD'] = 'N/A'
