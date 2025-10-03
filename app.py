@@ -68,6 +68,17 @@ def salvar_selecao_colunas(ano: str, colunas: list):
 # --- Interface do Usuário (Sidebar) ---
 
 st.sidebar.title("Opções")
+
+# --- NOVO BOTÃO DE ATUALIZAÇÃO ---
+# Adicionamos um botão proeminente para o usuário. Ao ser clicado,
+# ele invoca a função `refresh_all`, que é o gatilho central para a nossa lógica.
+# O `type="primary"` destaca a importância da ação.
+if st.sidebar.button("🔄 Atualizar Todos os Dados", type="primary", help="Recarrega os dados dos CSVs e do Google Sheets"):
+    # Envolvemos a chamada em um 'spinner' para dar feedback visual ao usuário,
+    # indicando que uma operação demorada está em andamento.
+    with st.spinner("Buscando os dados mais recentes..."):
+        refresh_all()
+
 st.sidebar.divider()
 
 # Filtros Globais
@@ -76,7 +87,7 @@ preferencias = carregar_preferencias()
 uasg_padrao = preferencias.get("config", {}).get("uasg_padrao", "")
 filtro_uasg = st.sidebar.text_input(
     "Filtrar por UASG (fixo para todas as abas)",
-    value=uasg_padrao  # Preenche com o valor padrão das preferências
+    value=uasg_padrao
 )
 
 filtro_geral = st.sidebar.text_input(
@@ -88,7 +99,6 @@ st.sidebar.divider()
 
 # Seção de Gerenciamento
 with st.sidebar.expander("Gerenciamento de Dados"):
-    # Formulário para adicionar ano
     with st.form("form_adicionar_ano", clear_on_submit=True):
         st.subheader("Adicionar Novo Ano")
         novo_ano = st.text_input("Ano (ex: 2026)")
@@ -97,7 +107,6 @@ with st.sidebar.expander("Gerenciamento de Dados"):
         if submitted_add:
             adicionar_ano(novo_ano, nova_url)
 
-    # Formulário para excluir ano
     anos_existentes = list(preferencias.get("data_sources", {}).keys())
     if anos_existentes:
         with st.form("form_excluir_ano"):
@@ -129,7 +138,6 @@ for i, ano in enumerate(anos):
             st.warning(f"Nenhum dado disponível para o ano de {ano}.")
             continue
             
-        # --- Seleção de Colunas Visíveis ---
         with st.expander("Selecionar Colunas Visíveis"):
             todas_colunas = df.columns.tolist()
             colunas_salvas = preferencias.get('colunas_visiveis', {}).get(ano, df.columns.tolist())
@@ -148,21 +156,14 @@ for i, ano in enumerate(anos):
         # --- Aplicação dos Filtros ---
         df_filtrado = df_para_exibir.copy()
 
-        # 1. Aplicar filtro fixo de UASG (se a coluna existir)
         if 'UASG' in df_filtrado.columns and filtro_uasg:
             df_filtrado = df_filtrado[df_filtrado['UASG'].str.contains(filtro_uasg, case=False, na=False)]
 
-        # 2. Aplicar filtro geral sobre os dados já filtrados pela UASG
         if filtro_geral:
-            # Definimos explicitamente as colunas alvo da nossa busca.
             colunas_alvo = ['DFD', 'Valor Total Estimado (R$)']
-
-            # Verificamos quais das nossas colunas alvo realmente existem no DataFrame.
-            # Isso evita erros caso o usuário tenha ocultado uma dessas colunas.
             colunas_para_busca = [col for col in colunas_alvo if col in df_filtrado.columns]
 
             if colunas_para_busca:
-                # Aplicamos a máscara de busca *apenas* no subconjunto de colunas.
                 mask = df_filtrado[colunas_para_busca].apply(
                     lambda col: col.astype(str).str.contains(filtro_geral, case=False, na=False)
                 ).any(axis=1)
@@ -175,7 +176,6 @@ for i, ano in enumerate(anos):
         total_registros = len(df_filtrado)
         valor_total_estimado = 0
         if 'Valor Total Estimado (R$)' in df_filtrado.columns:
-            # Limpeza do valor antes da conversão para numérico
             df_filtrado_copy = df_filtrado.copy()
             df_filtrado_copy['Valor Total Estimado (R$)'] = df_filtrado_copy['Valor Total Estimado (R$)'].str.replace('.', '', regex=False).str.replace(',', '.', regex=False)
             
@@ -183,7 +183,6 @@ for i, ano in enumerate(anos):
                 df_filtrado_copy['Valor Total Estimado (R$)'], 
                 errors='coerce'
             ).sum()
-
 
         col1, col2 = st.columns(2)
         col1.metric("Registros Exibidos", total_registros)
